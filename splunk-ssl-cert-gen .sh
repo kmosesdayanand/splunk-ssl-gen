@@ -35,3 +35,6 @@ echo "Verifying client.pem with ca_cert.pem..."
 openssl verify -CAfile ca_cert.pem client.pem
 
 echo "OpenSSL script executed successfully."
+
+
+
