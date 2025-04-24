@@ -17,6 +17,17 @@
 read -s -p "Enter password for server and client certificate (leave blank for no password): " server_password
 echo
 
+# Get current script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Output directory setup
+output_dir="$SCRIPT_DIR/Splunk_SSL_self_signed_Config"
+cert_dir="$output_dir/Splunk_SSL_Certs"
+conf_dir="$output_dir/local"
+
+mkdir -p "$cert_dir"
+mkdir -p "$conf_dir"
+
 # Create Root CA key and certificate
 openssl genrsa -out rootCA.key 2048
 openssl req -x509 -new -nodes -key rootCA.key -days 3650 -out rootCA.pem
@@ -43,11 +54,7 @@ openssl genrsa -out client.key 2048
 openssl req -new -key client.key -out client.csr -subj "/C=US/ST=California/L=San Francisco/O=Splunk/OU=IT/CN=SplunkClient"
 
 # Sign Client Certificate
-if [ -z "$server_password" ]; then
-    openssl x509 -req -in client.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out client.pem -days 3650
-else
-    openssl x509 -req -in client.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out client.pem -days 3650 -passin pass:"$server_password"
-fi
+openssl x509 -req -in client.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out client.pem -days 3650
 
 # ==================================================
 # ✅ PART 2: Validation and Verification
@@ -65,13 +72,6 @@ openssl verify -CAfile rootCA.pem client.pem
 # ✨ PART 3: Magic — Bundling & Organizing
 # ==================================================
 
-output_dir="Splunk_SSL_self_signed_Config"
-cert_dir="$output_dir/Splunk_SSL_Certs"
-conf_dir="$output_dir/local"
-
-mkdir -p "$cert_dir"
-mkdir -p "$conf_dir"
-
 # Duplicate server.pem as web_server.pem
 cp server.pem "$cert_dir/web_server.pem"
 
@@ -88,16 +88,16 @@ cp client.key "$cert_dir/client.key"
 # Create CA cert file (for Splunk trust)
 cat rootCA.pem > "$cert_dir/ca_cert.pem"
 
-# Create web.conf
+# Create web.conf with filled password
 cat > "$conf_dir/web.conf" <<EOF
 [settings]
 enableSplunkWebSSL = true
 privKeyPath = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.key
 serverCert = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/web_server.pem
-sslPassword = <password>
+sslPassword = $server_password
 EOF
 
-# Create server.conf
+# Create server.conf with filled password
 cat > "$conf_dir/server.conf" <<EOF
 [sslConfig]
 enableSplunkdSSL = true
@@ -105,19 +105,12 @@ cliVerifyServerName = false
 sslVerifyServerName = false
 serverCert = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.pem
 caCertFile = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/ca_cert.pem
-sslPassword = <password>
+sslPassword = $server_password
 EOF
 
-# ==================================================
-# 📦 PART 4: Archiving Raw Certs
-# ==================================================
-
-raw_dir="$output_dir/initial_raw_materials"
-mkdir -p "$raw_dir"
-
-mv rootCA.* server.key server.csr server.pem client.key client.csr client.pem "$raw_dir/" 2>/dev/null
+# 🧹 Optional: Clean up raw certs from script dir
+rm -f rootCA.key rootCA.pem server.key server.csr server.pem server.serial client.key client.csr client.pem
 
 # 🎉 Done
 echo "✅ Certificate creation, bundling, and config generation complete!"
-echo "📂 All outputs are in: $output_dir/"
-echo "📦 Raw certs archived in: $raw_dir/"
+echo "📂 All outputs are neatly tucked into: $output_dir/"
