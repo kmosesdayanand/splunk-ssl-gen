@@ -92,8 +92,8 @@ cat rootCA.pem > "$cert_dir/ca_cert.pem"
 cat > "$conf_dir/web.conf" <<EOF
 [settings]
 enableSplunkWebSSL = true
-privKeyPath = /$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.key
-serverCert = /$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/web_server.pem
+privKeyPath = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.key
+serverCert = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/web_server.pem
 sslPassword = <password>
 EOF
 
@@ -103,8 +103,8 @@ cat > "$conf_dir/server.conf" <<EOF
 enableSplunkdSSL = true
 cliVerifyServerName = false
 sslVerifyServerName = false
-serverCert = /$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.pem
-caCertFile =/$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/ca_cert.pem
+serverCert = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.pem
+caCertFile =\$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/ca_cert.pem
 sslPassword = <password>
 EOF
 
