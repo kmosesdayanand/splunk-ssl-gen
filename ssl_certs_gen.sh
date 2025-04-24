@@ -65,7 +65,7 @@ openssl verify -CAfile rootCA.pem client.pem
 # ✨ PART 3: Magic — Bundling & Organizing
 # ==================================================
 
-output_dir="Splunk_SSL_self_signed_"
+output_dir="Splunk_SSL_self_signed_Config"
 cert_dir="$output_dir/Splunk_SSL_Certs"
 conf_dir="$output_dir/local"
 
