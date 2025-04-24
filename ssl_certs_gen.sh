@@ -104,10 +104,20 @@ enableSplunkdSSL = true
 cliVerifyServerName = false
 sslVerifyServerName = false
 serverCert = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.pem
-caCertFile =\$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/ca_cert.pem
+caCertFile = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/ca_cert.pem
 sslPassword = <password>
 EOF
+
+# ==================================================
+# 📦 PART 4: Archiving Raw Certs
+# ==================================================
+
+raw_dir="$output_dir/initial_raw_materials"
+mkdir -p "$raw_dir"
+
+mv rootCA.* server.key server.csr server.pem client.key client.csr client.pem "$raw_dir/" 2>/dev/null
 
 # 🎉 Done
 echo "✅ Certificate creation, bundling, and config generation complete!"
 echo "📂 All outputs are in: $output_dir/"
+echo "📦 Raw certs archived in: $raw_dir/"
