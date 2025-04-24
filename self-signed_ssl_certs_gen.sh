@@ -109,7 +109,7 @@ sslPassword = $server_password
 EOF
 
 # 🧹 Optional: Clean up raw certs from script dir
-rm -f rootCA.key rootCA.pem server.key server.csr server.pem server.serial client.key client.csr client.pem
+rm -f rootCA.srl rootCA.key rootCA.pem server.key server.csr server.pem server.serial client.key client.csr client.pem
 
 # 🎉 Done
 echo "✅ Certificate creation, bundling, and config generation complete!"
