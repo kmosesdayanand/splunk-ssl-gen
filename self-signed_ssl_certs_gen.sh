@@ -13,12 +13,13 @@
 # 🎭 PART 1: Certificate Creation
 # ==================================================
 
-# Ask for password for protected keys
-read -s -p "Enter password for server and client certificate (leave blank for no password): " server_password
+# Ask for password for server and client certificate (leave blank for no password)
+read -s -p "Enter password for server certificate (leave blank for no password): " server_password
 echo
 
+
 # Get current script location
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURC/o sE[0]}")" && pwd)"
 
 # Output directory setup
 output_dir="$SCRIPT_DIR/Splunk_SSL_self_signed_Config"
@@ -32,7 +33,7 @@ mkdir -p "$conf_dir"
 openssl genrsa -out rootCA.key 2048
 openssl req -x509 -new -nodes -key rootCA.key -days 3650 -out rootCA.pem
 
-# Generate Server Key
+# Generate Server Key with password
 if [ -z "$server_password" ]; then
     openssl genrsa -out server.key 2048
 else
@@ -49,8 +50,17 @@ else
     openssl x509 -req -in server.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out server.pem -days 3650 -passin pass:"$server_password"
 fi
 
-# Generate Client Key and CSR
-openssl genrsa -out client.key 2048
+read -s -p "Enter password for client certificate (leave blank for no password): " client_password
+echo
+
+# Generate Client Key with password
+if [ -z "$client_password" ]; then
+    openssl genrsa -out client.key 2048
+else
+    openssl genrsa -aes256 -passout pass:"$client_password" -out client.key 2048
+fi
+
+# Generate Client CSR
 openssl req -new -key client.key -out client.csr -subj "/C=US/ST=California/L=San Francisco/O=Splunk/OU=IT/CN=SplunkClient"
 
 # Sign Client Certificate
@@ -92,8 +102,8 @@ cat rootCA.pem > "$cert_dir/ca_cert.pem"
 cat > "$conf_dir/web.conf" <<EOF
 [settings]
 enableSplunkWebSSL = true
-privKeyPath = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.key
-serverCert = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/web_server.pem
+privKeyPath = \$SPLUNK_HOME/etc/apps/Splunk_SSL_self_signed_Config/Splunk_SSL_Certs/server.key
+serverCert = \$SPLUNK_HOME/etc/apps/Splunk_SSL_self_signed_Config/Splunk_SSL_Certs/web_server.pem
 sslPassword = $server_password
 EOF
 
@@ -103,9 +113,23 @@ cat > "$conf_dir/server.conf" <<EOF
 enableSplunkdSSL = true
 cliVerifyServerName = false
 sslVerifyServerName = false
-serverCert = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/server.pem
-caCertFile = \$SPLUNK_HOME/etc/apps/gen_ssl_splunk/Splunk_SSL_Certs/ca_cert.pem
-sslPassword = $server_password
+serverCert = \$SPLUNK_HOME/etc/apps/Splunk_SSL_self_signed_Config/Splunk_SSL_Certs/server.pem
+caCertFile = \$SPLUNK_HOME/etc/apps/Splunk_SSL_self_signed_Config/Splunk_SSL_Certs/ca_cert.pem
+EOF
+
+# Create outputs.conf with filled password
+cat > "$conf_dir/outputs.conf" <<EOF
+[tcpout:<group_name>] 
+clientCert = \$SPLUNK_HOME/etc/apps/Splunk_SSL_self_signed_Config/Splunk_SSL_Certs/client.pem 
+sslPassword = $client_password
+EOF
+
+# Create inputs.conf with filled password
+cat > "$conf_dir/inputs.conf" <<EOF
+[SSL]
+serverCert = \$SPLUNK_HOME/etc/apps/Splunk_SSL_self_signed_Config/Splunk_SSL_Certs/server.pem 
+sslPassword = $server_password 
+requireClientCert = false
 EOF
 
 # 🧹 Optional: Clean up raw certs from script dir
