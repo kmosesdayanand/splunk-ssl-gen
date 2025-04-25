@@ -28,7 +28,7 @@
         #   command = ["npm" "run" "dev"];
         #   manager = "web";
         #   env = {
-        #     # Environment variables to set for your server
+        #     # Environment variables to set for your server.
         #     PORT = "$PORT";
         #   };
         # };
