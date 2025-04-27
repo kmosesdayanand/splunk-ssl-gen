@@ -1,105 +1,103 @@
 #!/bin/bash
 
-# Usage: ./test1.sh [ascending|descending] root.pem intermediate.pem ... server-cert.pem
+# Function to check if a certificate file exists
+check_certificate_exists() {
+    local certificate_file="$1"
+    if [[ ! -f "$certificate_file" ]]; then
+        echo "Error: Certificate file '$certificate_file' not found!" >&2
+        return 1
+    fi
+    return 0
+}
 
-if [[ $# -lt 3 ]]; then
-    echo "Usage: $0 [ascending|descending] root.pem intermediate.pem ... server-cert.pem"
-    exit 1
-fi
+# Function to get certificate expiration date
+get_certificate_expiration() {
+    local certificate_file="$1"
+    if ! check_certificate_exists "$certificate_file"; then
+        return 1
+    fi
+    openssl x509 -enddate -noout -in "$certificate_file" 2>/dev/null | cut -d= -f2
+}
 
-direction=$1
-shift
+# Function to get certificate issuer CN
+get_certificate_issuer_cn() {
+    local certificate_file="$1"
+    if ! check_certificate_exists "$certificate_file"; then
+        return 1
+    fi
+    local issuer=$(openssl x509 -in "$certificate_file" -noout -issuer -nameopt RFC2253 2>/dev/null)
+    echo "$issuer" | grep -oE "CN=[^,]+" | cut -d= -f2
+}
 
-if [[ "$direction" != "ascending" && "$direction" != "descending" ]]; then
-    echo "Error: First argument must be 'ascending' or 'descending'"
-    exit 1
-fi
+# Function to get certificate subject CN
+get_certificate_subject_cn() {
+    local certificate_file="$1"
+    if ! check_certificate_exists "$certificate_file"; then
+        return 1
+    fi
+    local subject=$(openssl x509 -in "$certificate_file" -noout -subject -nameopt RFC2253 2>/dev/null)
+    echo "$subject" | grep -oE "CN=[^,]+" | cut -d= -f2
+}
 
-declare -A subject_map
-declare -A issuer_map
-declare -A expiry_map
-declare -A file_map
-declare -A cn_map
+# Prompt user for certificate files
+read -p "Please enter the list of certificate files separated by spaces (e.g., root.pem I1.pem server-cert.pem): " -a cert_files
 
-cert_files=("$@")
+# Print Expiration Dates
+echo
+echo "Certificate Expiration Dates:"
+echo "---------------------------------------------------------------"
+printf "| %-25s | %-30s |\n" "Certificate File" "Expiration Date"
+echo "---------------------------------------------------------------"
+for cert_file in "${cert_files[@]}"; do
+    expiration=$(get_certificate_expiration "$cert_file")
+    if [[ -z "$expiration" ]]; then
+        expiration="Invalid certificate"
+    fi
+    printf "| %-25s | %-30s |\n" "$cert_file" "$expiration"
+done
+echo "---------------------------------------------------------------"
 
-# Check if all files exist
-for file in "${cert_files[@]}"; do
-    if [[ ! -f "$file" ]]; then
-        echo "Error: File '$file' not found!"
-        exit 1
+# Print Certificate Chain Information
+echo
+echo "Certificate Chain Information:"
+echo "------------------------------------------------------------------------------------------"
+printf "| %-25s | %-30s | %-30s |\n" "Certificate File" "Issuer CN" "Subject CN"
+echo "------------------------------------------------------------------------------------------"
+declare -A cert_issuer
+declare -A cert_subject
+
+for cert_file in "${cert_files[@]}"; do
+    issuer_cn=$(get_certificate_issuer_cn "$cert_file")
+    subject_cn=$(get_certificate_subject_cn "$cert_file")
+
+    if [[ -z "$issuer_cn" || -z "$subject_cn" ]]; then
+        echo "Warning: Skipping certificate '$cert_file' due to missing CN values." >&2
+        continue
+    fi
+
+    cert_issuer["$cert_file"]="$issuer_cn"
+    cert_subject["$cert_file"]="$subject_cn"
+
+    printf "| %-25s | %-30s | %-30s |\n" "$cert_file" "$issuer_cn" "$subject_cn"
+done
+echo "------------------------------------------------------------------------------------------"
+
+# Attempt to determine the root certificate (where Issuer CN == Subject CN)
+root_cert=""
+root_cert_count=0
+for cert_file in "${cert_files[@]}"; do
+    if [[ "${cert_issuer[$cert_file]}" == "${cert_subject[$cert_file]}" ]]; then
+        root_cert="$cert_file"
+        ((root_cert_count++))
     fi
 done
 
-# Extract information
-for cert in "${cert_files[@]}"; do
-    subject=$(openssl x509 -in "$cert" -noout -subject 2>/dev/null | sed 's/^subject=//')
-    issuer=$(openssl x509 -in "$cert" -noout -issuer 2>/dev/null | sed 's/^issuer=//')
-    not_after=$(openssl x509 -in "$cert" -noout -enddate 2>/dev/null | cut -d= -f2)
-
-    cn=$(echo "$subject" | sed -n 's/.*CN[ =]\(.*\)/\1/p')
-    if [[ -z "$cn" ]]; then
-        cn="(CN Not Found)"
+if [[ "$root_cert_count" -eq 1 ]]; then
+    echo "Root Certificate Identified: $root_cert"
+else
+    if [[ "$root_cert_count" -gt 1 ]]; then
+        echo "Warning: Multiple certificates with Issuer CN == Subject CN found. Please verify the certificate chain." >&2
+    else
+        echo "Error: Could not determine the root certificate. Ensure certificates are in a valid chain." >&2
     fi
-
-    subject_key=$(echo -n "$subject" | openssl dgst -sha256 | awk '{print $2}')
-    issuer_key=$(echo -n "$issuer" | openssl dgst -sha256 | awk '{print $2}')
-
-    subject_map["$subject_key"]="$issuer_key"
-    issuer_map["$subject_key"]="$issuer"
-    expiry_map["$subject_key"]="$not_after"
-    file_map["$subject_key"]="$cert"
-    cn_map["$subject_key"]="$cn"
-done
-
-# Find the root cert (self-signed)
-root_key=""
-for subject_key in "${!subject_map[@]}"; do
-    if [[ "${subject_map[$subject_key]}" == "$subject_key" ]]; then
-        root_key="$subject_key"
-        break
-    fi
-done
-
-if [[ -z "$root_key" ]]; then
-    echo "Error: Could not determine root certificate (self-signed cert not found)."
-    exit 1
 fi
-
-# Build chain from root to leaf
-chain=()
-visited=()
-current_key="$root_key"
-while [[ -n "$current_key" ]]; do
-    chain+=("$current_key")
-    visited+=("$current_key")
-
-    next_key=""
-    for skey in "${!subject_map[@]}"; do
-        if [[ "${subject_map[$skey]}" == "$current_key" && ! " ${visited[*]} " =~ " $skey " ]]; then
-            next_key="$skey"
-            break
-        fi
-    done
-    current_key="$next_key"
-done
-
-# Reverse for descending (leaf to root)
-if [[ "$direction" == "descending" ]]; then
-    reversed_chain=()
-    for (( i=${#chain[@]}-1; i>=0; i-- )); do
-        reversed_chain+=("${chain[$i]}")
-    done
-    chain=("${reversed_chain[@]}")
-fi
-
-# Print result as a clean table
-printf "\n%-30s | %-50s | %-25s\n" "Filename" "Common Name (CN)" "Expiration Date"
-printf "%s\n" "---------------------------------------------------------------------------------------------------------------"
-for key in "${chain[@]}"; do
-    cert_file="${file_map[$key]}"
-    cn="${cn_map[$key]}"
-    expiry="${expiry_map[$key]}"
-    printf "%-30s | %-50s | %-25s\n" "$cert_file" "$cn" "$expiry"
-done
-echo ""
