@@ -26,13 +26,13 @@ Spend less time wrestling with OpenSSL commands and more time securing your data
 
 ---
 
-# 🛠️ Usage
+## 🛠️ Usage
 
-## How to Use It
 
-### 1. Make it executable:
+
+### 1. Make scripts executable:
 ```bash
-chmod +x ssl_check.sh
+chmod +x <scriptname.sh>
 ```
 
 ### 2. ssl_check.sh:
