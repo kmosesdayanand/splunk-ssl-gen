@@ -37,10 +37,7 @@ chmod +x <scriptname.sh>
 
 ### 2. ssl_check.sh:
 ```bash
-./ssl_check.sh
+./<scriptname.sh>
 ```
-For example:
-```
-Please enter the list of certificate files separated by spaces (e.g., root.pem I1.pem server-cert.pem): root.pem server.pem intermediate.pem
-```
+
 
