@@ -26,6 +26,21 @@ Spend less time wrestling with OpenSSL commands and more time securing your data
 
 ---
 
-## 🛠️ Usage
+# 🛠️ Usage
 
+## How to Use It
+
+### 1. Make it executable:
+```bash
+chmod +x ssl_check.sh
+```
+
+### 2. ssl_check.sh:
+```bash
+./ssl_check.sh
+```
+For example:
+```
+Please enter the list of certificate files separated by spaces (e.g., root.pem I1.pem server-cert.pem): root.pem server.pem intermediate.pem
+```
 
