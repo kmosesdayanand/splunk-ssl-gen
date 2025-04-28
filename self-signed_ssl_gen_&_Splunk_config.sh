@@ -2,7 +2,7 @@
 
 #########################################################
 # Author      : Moses Dayanand                          #
-# Title       : OpenSSL Self Signed                     #
+# Title       : OpenSSL Self Signed  Cert Gen                  #
 #               Certificate Generation Script           #
 # Description : Creates Root CA, Server & Client Certs  #
 #             : Verifies and organizes certs for Splunk #
